@@ -6,7 +6,7 @@
  *
  * Contract (do not break — render3d.js depends on it):
  *   window.Game = {
- *     WORLD, start(), update(dt), setMove(mx,mz),
+ *     WORLD, start(), update(dt), setMove(mx,mz), setMoveTarget(x,z),
  *     getState(), onMoney(cb), onUnlock(cb)
  *   }
  *
@@ -144,17 +144,54 @@
     if (!state) return;
     state.player._mx = mx;
     state.player._mz = mz;
+    if (Math.abs(mx || 0) > 1e-3 || Math.abs(mz || 0) > 1e-3) {
+      state.player._target = null;
+    }
+  }
+
+  function setMoveTarget(x, z) {
+    if (!state) return;
+    state.player._target = {
+      x: clamp(x, WORLD.minX + 1, WORLD.maxX - 1),
+      z: clamp(z, WORLD.minZ + 1, WORLD.maxZ - 1)
+    };
   }
 
   // --- Update sub-systems -------------------------------------------------
   function updatePlayer(dt) {
     var p = state.player;
     var mx = p._mx || 0, mz = p._mz || 0;
+    if (p._target && Math.abs(mx) < 1e-3 && Math.abs(mz) < 1e-3) {
+      var dx = p._target.x - p.x;
+      var dz = p._target.z - p.z;
+      var d = Math.sqrt(dx * dx + dz * dz);
+      if (d < 0.15) {
+        p._target = null;
+        return;
+      }
+      mx = dx / d;
+      mz = dz / d;
+    }
     var len = Math.sqrt(mx * mx + mz * mz);
     if (len > 1e-3) {
       mx /= len; mz /= len;
-      p.x = clamp(p.x + mx * PLAYER_SPEED * dt, WORLD.minX + 1, WORLD.maxX - 1);
-      p.z = clamp(p.z + mz * PLAYER_SPEED * dt, WORLD.minZ + 1, WORLD.maxZ - 1);
+      var step = PLAYER_SPEED * dt;
+      if (p._target) {
+        var tx = p._target.x - p.x;
+        var tz = p._target.z - p.z;
+        var td = Math.sqrt(tx * tx + tz * tz);
+        if (step >= td) {
+          p.x = p._target.x;
+          p.z = p._target.z;
+          p._target = null;
+        } else {
+          p.x = clamp(p.x + mx * step, WORLD.minX + 1, WORLD.maxX - 1);
+          p.z = clamp(p.z + mz * step, WORLD.minZ + 1, WORLD.maxZ - 1);
+        }
+      } else {
+        p.x = clamp(p.x + mx * step, WORLD.minX + 1, WORLD.maxX - 1);
+        p.z = clamp(p.z + mz * step, WORLD.minZ + 1, WORLD.maxZ - 1);
+      }
       p.angle = Math.atan2(mx, mz);
     }
   }
@@ -619,6 +656,7 @@
     start: start,
     update: update,
     setMove: setMove,
+    setMoveTarget: setMoveTarget,
     getState: getState,
     onMoney: onMoney,
     onUnlock: onUnlock,

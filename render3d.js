@@ -16,6 +16,10 @@
   var scene, camera, renderer, clock;
   var canvasEl, floatLayer;
   var camTarget = new THREE.Vector3(0, 0, 0);
+  var raycaster = new THREE.Raycaster();
+  var pointer = new THREE.Vector2();
+  var groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  var clickPoint = new THREE.Vector3();
 
   // entity pools keyed by id
   var playerGroup, carryGroup;
@@ -86,7 +90,19 @@
     clock = new THREE.Clock();
     resize();
     window.addEventListener('resize', resize);
+    canvasEl.addEventListener('pointerdown', onPointerDown);
     requestAnimationFrame(loop);
+  }
+
+  function onPointerDown(e) {
+    if (e.button != null && e.button !== 0) return;
+    var rect = canvasEl.getBoundingClientRect();
+    pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(pointer, camera);
+    if (raycaster.ray.intersectPlane(groundPlane, clickPoint)) {
+      Game.setMoveTarget(clickPoint.x, clickPoint.z);
+    }
   }
 
   function resize() {
