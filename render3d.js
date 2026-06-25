@@ -482,14 +482,23 @@
     var counter = box(1.6, 1.0, 2.2, 0xefce6a); counter.position.y = 0.5; g.add(counter);
     var belt = box(1.0, 0.1, 2.0, 0x2f3338); belt.position.set(0, 1.02, 0); g.add(belt);
     var reg = box(0.6, 0.5, 0.6, 0xdfe3e8); reg.position.set(0.4, 1.3, -0.6); g.add(reg);
-    // a little cashier
-    var head = box(0.5, 0.5, 0.5, 0xffcca0); head.position.set(-0.9, 1.6, 0); g.add(head);
-    var body = box(0.7, 0.8, 0.5, 0x3aa655); body.position.set(-0.9, 1.0, 0); g.add(body);
+    // A hired cashier appears only after the player pays the recruit pad.
+    var cashier = new THREE.Group();
+    cashier.position.set(-0.9, 0, 0);
+    var body = sphere(0.38, 0x58c6a9, 16); body.position.y = 1.02; body.scale.set(0.85, 1.0, 0.62); cashier.add(body);
+    var head = sphere(0.32, 0xf2ccff, 16); head.position.y = 1.58; cashier.add(head);
+    var arm1 = cyl(0.08, 0.07, 0.46, 0x58c6a9, 10); arm1.position.set(-0.33, 1.02, 0.16); arm1.rotation.z = -0.4; cashier.add(arm1);
+    var arm2 = cyl(0.08, 0.07, 0.46, 0x58c6a9, 10); arm2.position.set(0.33, 1.02, 0.16); arm2.rotation.z = 0.4; cashier.add(arm2);
+    cashier.visible = !!c.cashierHired;
+    g.add(cashier);
+    g.userData.cashier = cashier;
     scene.add(g);
     checkoutMeshes[c.id] = g;
   }
   function syncCheckout(c) {
     if (!checkoutMeshes[c.id]) buildCheckout(c);
+    var g = checkoutMeshes[c.id];
+    if (g.userData.cashier) g.userData.cashier.visible = !!c.cashierHired;
   }
 
   // ---- pads --------------------------------------------------------------

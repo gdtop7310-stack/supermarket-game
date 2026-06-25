@@ -41,6 +41,7 @@
   var CHECKOUT_TIME     = 0.9;   // sec to process one customer at checkout
   var CUSTOMER_SPAWN    = 2.4;   // base sec between customer spawns
   var PAD_PAY_RATE      = 90;    // $ / sec drained while standing on a pad
+  var CASHIER_HIRE_COST = 120;
 
   // ------------------------------------------------------------------------
   var state = null;
@@ -80,9 +81,10 @@
       _refillT: 0
     };
 
-    // Checkouts near the entrance (store side, z<0).
-    state.checkouts.push(mkCheckout(WORLD.minX + 4, -8));
-    state.checkouts.push(mkCheckout(WORLD.minX + 4, -11.5));
+    // Checkouts near the entrance (store side, z<0). They start without
+    // hired cashiers, so the player must serve the queue manually at first.
+    state.checkouts.push(mkCheckout(WORLD.minX + 4, -8, false));
+    state.checkouts.push(mkCheckout(WORLD.minX + 4, -11.5, false));
 
     // Shelves: rows in the store (z<0). Some locked behind upgrade pads.
     // layout: two rows.
@@ -124,17 +126,24 @@
       mkPad(WORLD.minX + 2, 2, 'carryCap', 80, 'Carry +4', { amount: 4 }),
       mkPad(12, -7, 'checkout', 260, 'New Checkout', { x: WORLD.minX + 4, z: -3 })
     ];
+    addCashierHirePad(state.checkouts[0], CASHIER_HIRE_COST);
+    addCashierHirePad(state.checkouts[1], CASHIER_HIRE_COST + 60);
 
     return state;
   }
 
-  function mkCheckout(x, z) {
+  function mkCheckout(x, z, cashierHired) {
     return { id: nid('co'), x: x, z: z, queueLen: 0,
-             _queue: [], _busyT: 0 };
+             cashierHired: !!cashierHired, _queue: [], _busyT: CHECKOUT_TIME };
   }
   function mkPad(x, z, kind, cost, label, data) {
     return { id: nid('pad'), x: x, z: z, kind: kind, cost: cost,
              paid: 0, label: label, _data: data, _done: false };
+  }
+  function addCashierHirePad(co, cost) {
+    if (!co) return;
+    state.pads.push(mkPad(co.x + 2.7, co.z, 'hireCashier', cost,
+      'Hire Cashier', { checkoutId: co.id }));
   }
 
   // --- Public: movement ---------------------------------------------------
@@ -294,8 +303,14 @@
       state.carryCap += d.amount;
       emitUnlock({ type: 'carryCap', value: state.carryCap, label: pad.label });
     } else if (pad.kind === 'checkout') {
-      state.checkouts.push(mkCheckout(d.x, d.z));
+      var co = mkCheckout(d.x, d.z, false);
+      state.checkouts.push(co);
+      addCashierHirePad(co, CASHIER_HIRE_COST + state.checkouts.length * 70);
       emitUnlock({ type: 'checkout', label: pad.label });
+    } else if (pad.kind === 'hireCashier') {
+      var co2 = findCheckout(d.checkoutId);
+      if (co2) co2.cashierHired = true;
+      emitUnlock({ type: 'cashier', id: co2 ? co2.id : null, label: pad.label });
     }
   }
 
@@ -344,7 +359,8 @@
     var best = null, bq = Infinity;
     for (var i = 0; i < state.checkouts.length; i++) {
       var c = state.checkouts[i];
-      if (c.queueLen < bq) { bq = c.queueLen; best = c; }
+      var q = c._queue ? c._queue.length : c.queueLen;
+      if (q < bq) { bq = q; best = c; }
     }
     return best;
   }
@@ -363,24 +379,33 @@
     }
     state.customers = alive;
 
-    // Process checkout queues.
+    // Process checkout queues. At first, the player must stand by the register
+    // to serve customers. Once a cashier is hired, that checkout runs itself.
     for (var k = 0; k < state.checkouts.length; k++) {
       var co = state.checkouts[k];
       co.queueLen = co._queue.length;
       if (co._queue.length > 0) {
-        co._busyT -= dt;
-        if (co._busyT <= 0) {
-          var done = co._queue.shift();
-          if (done) {
-            var prod = PRODUCTS[done.carryType];
-            var price = prod ? prod.price : 2;
-            state.money += price;
-            emitMoney();
-            addFloat(co.x, 1.6, co.z, '+$' + price, '#9cff9c');
-            done.state = 'leaving';
+        var first = co._queue[0];
+        var ready = first && dist2(first.x, first.z, co.x - 1.4, co.z) < 1.0;
+        var playerServing = dist2(state.player.x, state.player.z, co.x, co.z) <= REACH * REACH;
+        var canServe = ready && (co.cashierHired || playerServing);
+        if (canServe) {
+          co._busyT -= dt;
+          if (co._busyT <= 0) {
+            var done = co._queue.shift();
+            if (done) {
+              var prod = PRODUCTS[done.carryType];
+              var price = prod ? prod.price : 2;
+              state.money += price;
+              emitMoney();
+              addFloat(co.x, 1.6, co.z, '+$' + price, '#9cff9c');
+              done.state = 'leaving';
+            }
+            co._busyT = CHECKOUT_TIME;
+            co.queueLen = co._queue.length;
           }
+        } else {
           co._busyT = CHECKOUT_TIME;
-          co.queueLen = co._queue.length;
         }
       } else {
         co._busyT = CHECKOUT_TIME;
@@ -430,7 +455,17 @@
       var idx = co2._queue.indexOf(c);
       if (idx < 0) idx = 0;
       var qx = co2.x - 1.4 - idx * 1.3;
-      moveToward(c, qx, co2.z, dt);
+      if (moveToward(c, qx, co2.z, dt)) c.state = 'waitingCheckout';
+      // payment handled by checkout processing (state set to 'leaving')
+      return true;
+    }
+
+    if (c.state === 'waitingCheckout') {
+      var co3 = findCheckout(c._co);
+      if (!co3) { c.state = 'leaving'; return true; }
+      var idx2 = co3._queue.indexOf(c);
+      if (idx2 < 0) idx2 = 0;
+      moveToward(c, co3.x - 1.4 - idx2 * 1.3, co3.z, dt);
       // payment handled by checkout processing (state set to 'leaving')
       return true;
     }
@@ -526,7 +561,9 @@
           return { id: p.id, paid: p.paid, done: p._done };
         }),
         // persist any extra checkouts that were unlocked
-        checkouts: state.checkouts.map(function (c) { return { x: c.x, z: c.z }; })
+        checkouts: state.checkouts.map(function (c) {
+          return { id: c.id, x: c.x, z: c.z, cashierHired: c.cashierHired };
+        })
       };
       localStorage.setItem(SAVE_KEY, JSON.stringify(snap));
     } catch (e) { /* ignore quota / serialisation errors */ }
@@ -560,11 +597,18 @@
       var p = byId(state.pads, ps.id);
       if (p) { p.paid = ps.paid; if (ps.done) { p._done = true; } }
     });
-    // Re-create extra checkouts beyond the two defaults.
+    // Restore cashier hires on default checkouts and re-create extras.
+    (snap.checkouts || []).forEach(function (sc, idx) {
+      if (idx < state.checkouts.length && typeof sc.cashierHired === 'boolean') {
+        state.checkouts[idx].cashierHired = sc.cashierHired;
+      }
+    });
     if (snap.checkouts && snap.checkouts.length > state.checkouts.length) {
       for (var i = state.checkouts.length; i < snap.checkouts.length; i++) {
         var c = snap.checkouts[i];
-        state.checkouts.push(mkCheckout(c.x, c.z));
+        var co = mkCheckout(c.x, c.z, !!c.cashierHired);
+        state.checkouts.push(co);
+        if (!co.cashierHired) addCashierHirePad(co, CASHIER_HIRE_COST + state.checkouts.length * 70);
       }
     }
     return true;
@@ -623,7 +667,8 @@
                  amount: s.amount, capacity: s.capacity, locked: s.locked };
       }),
       checkouts: state.checkouts.map(function (c) {
-        return { id: c.id, x: c.x, z: c.z, queueLen: c.queueLen };
+        return { id: c.id, x: c.x, z: c.z, queueLen: c.queueLen,
+                 cashierHired: c.cashierHired };
       }),
       customers: state.customers.map(function (c) {
         return { id: c.id, x: c.x, z: c.z, angle: c.angle,
