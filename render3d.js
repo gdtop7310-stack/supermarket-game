@@ -55,6 +55,9 @@
   function cyl(rt, rb, h, color, seg) {
     return new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 10), mat(color));
   }
+  function sphere(r, color, seg) {
+    return new THREE.Mesh(new THREE.SphereGeometry(r, seg || 16, seg || 16), mat(color));
+  }
 
   // ---- scene setup -------------------------------------------------------
   function init(canvas) {
@@ -278,15 +281,26 @@
   // ---- player ------------------------------------------------------------
   function buildPlayer() {
     var g = new THREE.Group();
-    var body = box(1.0, 1.2, 0.7, 0x2b6cff); body.position.y = 0.9; g.add(body);
-    var apron = box(1.02, 0.7, 0.72, 0xffffff); apron.position.y = 0.7; g.add(apron);
-    var head = box(0.7, 0.7, 0.7, 0xffcca0); head.position.y = 1.9; g.add(head);
-    var cap = box(0.78, 0.22, 0.78, 0xff3b3b); cap.position.y = 2.32; g.add(cap);
-    // legs
-    var l1 = box(0.34, 0.7, 0.34, 0x33373d); l1.position.set(-0.25, 0.35, 0); g.add(l1);
-    var l2 = box(0.34, 0.7, 0.34, 0x33373d); l2.position.set(0.25, 0.35, 0); g.add(l2);
-    // facing marker (nose)
-    var nose = box(0.2, 0.2, 0.25, 0xff8a65); nose.position.set(0, 1.9, 0.45); g.add(nose);
+    var main = 0xc875ff;
+    var light = 0xf0c8ff;
+    var dark = 0x8c4bd6;
+
+    var hips = sphere(0.55, main, 20); hips.position.y = 0.92; hips.scale.set(0.95, 0.82, 0.78); g.add(hips);
+    var chest = sphere(0.62, main, 20); chest.position.y = 1.32; chest.scale.set(0.9, 1.12, 0.7); g.add(chest);
+    var belly = sphere(0.45, light, 16); belly.position.set(0, 1.08, 0.18); belly.scale.set(0.8, 0.65, 0.35); g.add(belly);
+
+    var head = sphere(0.55, light, 24); head.position.y = 2.08; g.add(head);
+    var neck = cyl(0.26, 0.28, 0.3, main, 16); neck.position.y = 1.65; g.add(neck);
+
+    var a1 = cyl(0.16, 0.14, 0.82, main, 16); a1.position.set(-0.62, 1.28, 0); a1.rotation.z = -0.42; g.add(a1);
+    var a2 = cyl(0.16, 0.14, 0.82, main, 16); a2.position.set(0.62, 1.28, 0); a2.rotation.z = 0.42; g.add(a2);
+    var h1 = sphere(0.18, light, 16); h1.position.set(-0.83, 0.86, 0.03); g.add(h1);
+    var h2 = sphere(0.18, light, 16); h2.position.set(0.83, 0.86, 0.03); g.add(h2);
+
+    var l1 = cyl(0.19, 0.18, 0.72, dark, 16); l1.position.set(-0.25, 0.44, 0); g.add(l1);
+    var l2 = cyl(0.19, 0.18, 0.72, dark, 16); l2.position.set(0.25, 0.44, 0); g.add(l2);
+    var f1 = sphere(0.24, light, 16); f1.position.set(-0.25, 0.08, 0.16); f1.scale.set(1.15, 0.65, 1.45); g.add(f1);
+    var f2 = sphere(0.24, light, 16); f2.position.set(0.25, 0.08, 0.16); f2.scale.set(1.15, 0.65, 1.45); g.add(f2);
     g.userData.legs = [l1, l2];
     return g;
   }
@@ -471,19 +485,25 @@
   // ---- customers ---------------------------------------------------------
   function buildCustomerMesh() {
     var g = new THREE.Group();
-    var body = box(0.85, 1.0, 0.6, 0xcf5fae); body.position.y = 0.8; g.add(body);
-    var head = box(0.6, 0.6, 0.6, 0xffcca0); head.position.y = 1.6; g.add(head);
-    var l1 = box(0.3, 0.6, 0.3, 0x444a52); l1.position.set(-0.22, 0.3, 0); g.add(l1);
-    var l2 = box(0.3, 0.6, 0.3, 0x444a52); l2.position.set(0.22, 0.3, 0); g.add(l2);
-    var item = box(0.5, 0.5, 0.5, 0xffffff); item.position.set(0, 1.9, 0); item.visible = false;
+    var body = sphere(0.48, 0xcf73ff, 18); body.position.y = 0.92; body.scale.set(0.85, 1.18, 0.7); g.add(body);
+    var head = sphere(0.42, 0xf2ccff, 18); head.position.y = 1.68; g.add(head);
+    var a1 = cyl(0.12, 0.1, 0.6, 0xcf73ff, 12); a1.position.set(-0.46, 1.0, 0); a1.rotation.z = -0.35; g.add(a1);
+    var a2 = cyl(0.12, 0.1, 0.6, 0xcf73ff, 12); a2.position.set(0.46, 1.0, 0); a2.rotation.z = 0.35; g.add(a2);
+    var l1 = cyl(0.14, 0.13, 0.55, 0x8652cc, 12); l1.position.set(-0.18, 0.34, 0); g.add(l1);
+    var l2 = cyl(0.14, 0.13, 0.55, 0x8652cc, 12); l2.position.set(0.18, 0.34, 0); g.add(l2);
+    var f1 = sphere(0.17, 0xf2ccff, 12); f1.position.set(-0.18, 0.06, 0.12); f1.scale.set(1.05, 0.6, 1.3); g.add(f1);
+    var f2 = sphere(0.17, 0xf2ccff, 12); f2.position.set(0.18, 0.06, 0.12); f2.scale.set(1.05, 0.6, 1.3); g.add(f2);
+    var item = box(0.5, 0.5, 0.5, 0xffffff); item.position.set(0, 2.12, 0); item.visible = false;
     g.add(item);
     g.userData.item = item;
     g.userData.body = body;
+    g.userData.tintMeshes = [body, a1, a2];
+    g.userData.legMeshes = [l1, l2];
     scene.add(g);
     return g;
   }
   function customerColor(idx) {
-    var palette = [0xcf5fae, 0x5fa8cf, 0xcf9b5f, 0x7fcf5f, 0xcf5f5f, 0x9b5fcf];
+    var palette = [0xcf73ff, 0xe16cff, 0xb66dff, 0xf070c8, 0xc45dff, 0xda8cff];
     return palette[idx % palette.length];
   }
   function syncCustomers(list) {
@@ -496,6 +516,12 @@
         m = customerPool.pop() || buildCustomerMesh();
         m.visible = true;
         m.userData.body.material.color.setHex(customerColor(i + c.id.length));
+        if (m.userData.tintMeshes) {
+          var tint = customerColor(i + c.id.length);
+          for (var ti = 0; ti < m.userData.tintMeshes.length; ti++) {
+            m.userData.tintMeshes[ti].material.color.setHex(tint);
+          }
+        }
         customerMap[c.id] = m;
       }
       m.position.set(c.x, 0, c.z);
