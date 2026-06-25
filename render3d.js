@@ -961,11 +961,10 @@
     }
 
     // camera follow (smooth) — angled top-down
-    camTarget.lerp(new THREE.Vector3(st.player.x, 0, st.player.z), 0.08);
-    var camX = camTarget.x * 0.5;
+    camTarget.lerp(new THREE.Vector3(st.player.x, 0, st.player.z), 0.12);
     camera.position.lerp(
-      new THREE.Vector3(camTarget.x * 0.4, 24, camTarget.z + 20), 0.06);
-    camera.lookAt(camTarget.x * 0.4, 0, camTarget.z - 2);
+      new THREE.Vector3(camTarget.x, 24, camTarget.z + 20), 0.1);
+    camera.lookAt(camTarget.x, 0, camTarget.z);
 
     renderer.render(scene, camera);
 
