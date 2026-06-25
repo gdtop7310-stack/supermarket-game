@@ -26,6 +26,8 @@
   var dragActive = false;
   var DRAG_DEADZONE = 10;
   var DRAG_RADIUS = 58;
+  var textureLoader = new THREE.TextureLoader();
+  var fruitTextureCache = {};
 
   // entity pools keyed by id
   var playerGroup, carryGroup;
@@ -58,47 +60,59 @@
   function sphere(r, color, seg) {
     return new THREE.Mesh(new THREE.SphereGeometry(r, seg || 16, seg || 16), mat(color));
   }
-  function fruitMesh(type, scale) {
-    scale = scale || 1;
-    var g = new THREE.Group();
-    if (type === 'banana') {
-      var peel = new THREE.Mesh(
-        new THREE.TorusGeometry(0.28 * scale, 0.075 * scale, 10, 18, Math.PI * 1.35),
-        mat(0xffd84a)
-      );
-      peel.rotation.set(Math.PI * 0.18, 0, Math.PI * 0.18);
-      peel.position.set(0.04 * scale, 0.06 * scale, 0);
-      g.add(peel);
-      var tip1 = sphere(0.06 * scale, 0x8a5a22, 8); tip1.position.set(-0.27 * scale, 0.06 * scale, 0.02 * scale); g.add(tip1);
-      var tip2 = sphere(0.06 * scale, 0x8a5a22, 8); tip2.position.set(0.31 * scale, 0.11 * scale, -0.02 * scale); g.add(tip2);
-    } else if (type === 'grape') {
-      var grapeColor = 0x7d45c7;
-      var pts = [
-        [0, 0.16, 0], [-0.13, 0.04, 0], [0.13, 0.04, 0],
-        [-0.08, -0.1, 0], [0.08, -0.1, 0], [0, -0.23, 0]
-      ];
-      for (var i = 0; i < pts.length; i++) {
-        var berry = sphere(0.115 * scale, grapeColor, 16);
-        berry.position.set(pts[i][0] * scale, pts[i][1] * scale, pts[i][2] * scale);
-        g.add(berry);
-      }
-      var stemG = cyl(0.025 * scale, 0.025 * scale, 0.22 * scale, 0x5b7f35, 8);
-      stemG.position.set(0, 0.34 * scale, 0);
-      stemG.rotation.z = 0.35;
-      g.add(stemG);
-    } else {
-      var apple = sphere(0.22 * scale, 0xe23b3b, 24);
-      apple.scale.set(1.05, 0.95, 1.05);
-      g.add(apple);
-      var stem = cyl(0.025 * scale, 0.025 * scale, 0.18 * scale, 0x6b3e1f, 8);
-      stem.position.set(0, 0.23 * scale, 0);
-      g.add(stem);
-      var leaf = sphere(0.07 * scale, 0x3aa655, 8);
-      leaf.position.set(0.09 * scale, 0.27 * scale, 0);
-      leaf.scale.set(1.6, 0.55, 0.9);
-      g.add(leaf);
+
+  function fruitAssetPath(type, variant) {
+    var names = {
+      apple:  { single: 'apple-single.png', crate: 'apple-crate.png' },
+      banana: { single: 'banana-bunch.png', crate: 'banana-crate.png' },
+      grape:  { single: 'grape-bunch.png', crate: 'grape-crate.png' }
+    };
+    var byType = names[type] || names.apple;
+    return 'assets/fruit/' + (byType[variant] || byType.single);
+  }
+
+  function fruitTexture(type, variant) {
+    var key = type + ':' + variant;
+    if (!fruitTextureCache[key]) {
+      var tx = textureLoader.load(fruitAssetPath(type, variant));
+      tx.minFilter = THREE.LinearFilter;
+      tx.magFilter = THREE.LinearFilter;
+      if (THREE.sRGBEncoding) tx.encoding = THREE.sRGBEncoding;
+      fruitTextureCache[key] = tx;
     }
+    return fruitTextureCache[key];
+  }
+
+  function fruitAssetSprite(type, scale, variant) {
+    scale = scale || 1;
+    variant = variant || 'single';
+    var g = new THREE.Group();
+    var material = new THREE.SpriteMaterial({
+      map: fruitTexture(type, variant),
+      transparent: true,
+      alphaTest: 0.08,
+      depthWrite: false
+    });
+    var sprite = new THREE.Sprite(material);
+    var size = {
+      apple:  { single: [0.78, 0.78], crate: [1.65, 1.35] },
+      banana: { single: [1.05, 0.86], crate: [1.7, 1.35] },
+      grape:  { single: [0.9, 1.02], crate: [1.7, 1.35] }
+    };
+    var dims = (size[type] && size[type][variant]) || size.apple.single;
+    sprite.scale.set(dims[0] * scale, dims[1] * scale, 1);
+    sprite.center.set(0.5, 0.5);
+    g.add(sprite);
+    g.userData.sprite = sprite;
     return g;
+  }
+
+  function fruitMesh(type, scale) {
+    return fruitAssetSprite(type, scale, 'single');
+  }
+
+  function fruitCrateMesh(type, scale) {
+    return fruitAssetSprite(type, scale, 'crate');
   }
 
   // ---- scene setup -------------------------------------------------------
@@ -433,6 +447,10 @@
     var bed = box(2.6, 0.4, 2.6, 0x5a3d26); bed.position.y = 0.2; g.add(bed);
     var soil = box(2.3, 0.2, 2.3, 0x3f2c1c); soil.position.y = 0.42; g.add(soil);
 
+    var crate = fruitCrateMesh(s.productType, 0.72);
+    crate.position.set(0.82, 1.18, 0.82);
+    g.add(crate);
+
     // sign post showing the crop colour
     var sign = box(0.9, 0.6, 0.1, colorHex(s.productType));
     sign.position.set(0, 2.0, -1.0); g.add(sign);
@@ -455,7 +473,7 @@
     }
 
     scene.add(g);
-    sourceMeshes[s.id] = { group: g, crops: crops };
+    sourceMeshes[s.id] = { group: g, crops: crops, crate: crate };
   }
 
   function syncSource(s) {
@@ -463,6 +481,8 @@
     if (!m) { buildSource(s); m = sourceMeshes[s.id]; }
     // Show crops proportional to stock; the "next" one scales with growth.
     var full = Math.floor((s.stock / 14) * m.crops.length);
+    m.crate.visible = s.stock > 0;
+    m.crate.scale.setScalar(0.75 + Math.min(1, s.stock / 14) * 0.25);
     for (var i = 0; i < m.crops.length; i++) {
       var c = m.crops[i];
       if (i < full) {
