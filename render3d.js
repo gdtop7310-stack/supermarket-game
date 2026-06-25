@@ -387,16 +387,18 @@
     var t2 = box(2.4, 0.12, 1.2, frameColor); t2.position.y = 1.5; g.add(t2);
     var backP = box(2.4, 1.6, 0.12, 0xb7bec6); backP.position.set(0, 1.0, -0.55); g.add(backP);
 
-    // product fill bars (boxes) on the two tiers
+    // 20 visible product slots: each item shown represents one shelf stock.
     var fillBars = [];
     var pc = colorHex(s.productType);
     for (var tier = 0; tier < 2; tier++) {
-      for (var col = 0; col < 4; col++) {
-        var item = fruitMesh(s.productType, 0.85);
-        item.position.set(-0.85 + col * 0.57, tier === 0 ? 1.2 : 1.8, 0.12);
-        item.visible = false;
-        g.add(item);
-        fillBars.push(item);
+      for (var row = 0; row < 2; row++) {
+        for (var col = 0; col < 5; col++) {
+          var item = fruitMesh(s.productType, 0.46);
+          item.position.set(-0.92 + col * 0.46, tier === 0 ? 1.18 : 1.76, row === 0 ? -0.08 : 0.32);
+          item.visible = false;
+          g.add(item);
+          fillBars.push(item);
+        }
       }
     }
 

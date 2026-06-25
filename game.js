@@ -37,6 +37,7 @@
   var REFILL_INTERVAL   = 0.12;  // sec between dropping 1 item to a shelf
   var GROW_RATE         = 0.55;  // growth units / sec (0..1 fills then +1 stock)
   var SOURCE_MAX_STOCK  = 14;
+  var SHELF_CAPACITY    = 20;
   var SHELF_BUY_INTERVAL= 0.5;   // sec a customer spends grabbing 1 item
   var CHECKOUT_TIME     = 0.9;   // sec to process one customer at checkout
   var CUSTOMER_SPAWN    = 2.4;   // base sec between customer spawns
@@ -99,7 +100,7 @@
     shelfDefs.forEach(function (d) {
       state.shelves.push({
         id: nid('shelf'), x: d.x, z: d.z, productType: d.type,
-        amount: 0, capacity: 16, locked: d.locked
+        amount: 0, capacity: SHELF_CAPACITY, locked: d.locked
       });
     });
 
