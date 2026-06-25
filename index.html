@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>スーパー経営アイドル — Supermarket Tycoon</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <!-- HUD -->
+  <div id="hud" class="hidden">
+    <div id="money">$0</div>
+    <div id="carry">手持ち: 0 / 0</div>
+    <div id="hint">緑のビームを目印に、農場で収穫 → 棚に補充しよう</div>
+    <button id="resetBtn">セーブをリセット</button>
+  </div>
+
+  <!-- DOM overlay for floating text and pad labels -->
+  <div id="floatLayer"></div>
+
+  <!-- Unlock toast -->
+  <div id="toast"></div>
+
+  <!-- Start screen -->
+  <div id="start">
+    <div class="card">
+      <h1>🛒 スーパー経営アイドル</h1>
+      <p class="sub">Supermarket Tycoon — low-poly 3D idle</p>
+      <ul class="how">
+        <li>🌱 <b>農場</b>(奥・緑エリア)で作物を収穫</li>
+        <li>📦 <b>棚</b>(手前・店エリア)に補充</li>
+        <li>🧑‍🤝‍🧑 お客さんが買って <b>お金</b>に</li>
+        <li>⬆️ 光る台に乗って <b>アップグレード</b></li>
+      </ul>
+      <p class="ctrl">移動: <b>WASD / 矢印キー</b> ・ スマホは左下スティック</p>
+      <button id="startBtn">▶ スタート</button>
+    </div>
+  </div>
+
+  <!-- Mobile virtual stick -->
+  <div id="stick" class="hidden">
+    <div id="stickBase"><div id="stickKnob"></div></div>
+  </div>
+
+  <script src="three.min.js"></script>
+  <script src="game.js"></script>
+  <script src="render3d.js"></script>
+  <script>
+  (function () {
+    // ---- HUD ----
+    var moneyEl = document.getElementById('money');
+    var carryEl = document.getElementById('carry');
+    window.HUD = {
+      update: function (st) {
+        moneyEl.textContent = '$' + st.money;
+        carryEl.textContent = '手持ち: ' + st.player.carryCount + ' / ' + st.carryCap +
+          (st.player.carryType ? ' (' + st.player.carryType + ')' : '');
+      }
+    };
+
+    // ---- keyboard input ----
+    var keys = {};
+    function applyKeys() {
+      var mx = 0, mz = 0;
+      if (keys['arrowleft'] || keys['a']) mx -= 1;
+      if (keys['arrowright'] || keys['d']) mx += 1;
+      if (keys['arrowup'] || keys['w']) mz -= 1;   // up = toward store (z<0)
+      if (keys['arrowdown'] || keys['s']) mz += 1; // down = toward farm (z>0)
+      Game.setMove(mx, mz);
+    }
+    window.addEventListener('keydown', function (e) {
+      var k = e.key.toLowerCase();
+      keys[k] = true;
+      if (['arrowup','arrowdown','arrowleft','arrowright'].indexOf(k) >= 0) e.preventDefault();
+      applyKeys();
+    });
+    window.addEventListener('keyup', function (e) {
+      keys[e.key.toLowerCase()] = false; applyKeys();
+    });
+
+    // ---- mobile virtual stick ----
+    var stick = document.getElementById('stick');
+    var base = document.getElementById('stickBase');
+    var knob = document.getElementById('stickKnob');
+    var stickActive = false, baseRect = null;
+    function stickStart(e) {
+      stickActive = true; baseRect = base.getBoundingClientRect(); stickMove(e);
+    }
+    function stickMove(e) {
+      if (!stickActive) return;
+      var t = e.touches ? e.touches[0] : e;
+      var cx = baseRect.left + baseRect.width / 2;
+      var cy = baseRect.top + baseRect.height / 2;
+      var dx = t.clientX - cx, dy = t.clientY - cy;
+      var max = baseRect.width / 2;
+      var len = Math.sqrt(dx * dx + dy * dy);
+      if (len > max) { dx = dx / len * max; dy = dy / len * max; }
+      knob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+      Game.setMove(dx / max, dy / max);
+      if (e.cancelable) e.preventDefault();
+    }
+    function stickEnd() {
+      stickActive = false; knob.style.transform = 'translate(0,0)';
+      Game.setMove(0, 0);
+    }
+    base.addEventListener('touchstart', stickStart, { passive: false });
+    base.addEventListener('touchmove', stickMove, { passive: false });
+    base.addEventListener('touchend', stickEnd);
+    base.addEventListener('mousedown', stickStart);
+    window.addEventListener('mousemove', stickMove);
+    window.addEventListener('mouseup', stickEnd);
+
+    // ---- unlock toast ----
+    var toast = document.getElementById('toast');
+    var toastT = null;
+    Game.onUnlock(function (info) {
+      toast.textContent = '🎉 アンロック: ' + (info.label || info.type);
+      toast.classList.add('show');
+      clearTimeout(toastT);
+      toastT = setTimeout(function () { toast.classList.remove('show'); }, 2200);
+    });
+
+    // ---- reset save ----
+    document.getElementById('resetBtn').addEventListener('click', function () {
+      if (confirm('セーブデータを消して最初からやり直しますか？')) {
+        Game.reset();
+        location.reload();
+      }
+    });
+    // persist on leave
+    window.addEventListener('beforeunload', function () {
+      if (Game && Game.save) Game.save();
+    });
+
+    // ---- start ----
+    var isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
+    document.getElementById('startBtn').addEventListener('click', function () {
+      if (typeof THREE === 'undefined') {
+        alert('three.min.js が見つかりません。\n' +
+              'リポジトリ同梱の three.min.js (Three.js r149) を index.html と同じ' +
+              'フォルダに置いてください。\n' +
+              '（取得例: npm pack three@0.149.0 で展開し build/three.min.js を配置）');
+        return;
+      }
+      document.getElementById('start').style.display = 'none';
+      document.getElementById('hud').classList.remove('hidden');
+      if (isTouch) stick.classList.remove('hidden');
+      Game.start();
+      Render3D.init(document.getElementById('game'));
+    });
+  })();
+  </script>
+</body>
+</html>
