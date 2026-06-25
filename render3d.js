@@ -39,6 +39,7 @@
   var customerMap = {};   // id -> mesh
   var tutorialBeacon;
   var floatPool = [];     // reusable DOM float elements
+  var districtSigns = [];
 
   function colorHex(type) { return Game.getProductColor(type); }
 
@@ -139,6 +140,7 @@
     scene.add(sun);
 
     buildGround();
+    buildDistrictSigns();
     buildStaticFromState();
 
     // player
@@ -262,76 +264,258 @@
   }
 
   // ---- ground / world decor ---------------------------------------------
+  // A cute low-poly "small farm + fruit shop" stage. This only builds scenery
+  // and leaves fruit sprites, controls, entity sync and cashier logic alone.
+  var GCOL = {
+    grass: 0x8fd24c, grassDk: 0x7cc23e, grassLt: 0xa6dd62,
+    path: 0xe7d3a1, pathEdge: 0xd8c08a, soilDk: 0x5f3c20,
+    storeFloor: 0xf4e7c8, storeTile: 0xe7d3a4,
+    wood: 0xb9824a, woodDk: 0x8a5a2b, fence: 0xd2a86a, fenceDk: 0xb88a4e,
+    leaf: 0x4fae44, leafDk: 0x3c8c36, awningA: 0xe8543f, awningB: 0xfff1e0,
+    signWood: 0xc98a4e
+  };
+
   function buildGround() {
     var W = WORLD.maxX - WORLD.minX;
+    var D = WORLD.maxZ - WORLD.minZ;
     var midX = (WORLD.minX + WORLD.maxX) / 2;
+    var midZ = (WORLD.minZ + WORLD.maxZ) / 2;
 
-    // Store floor (z<0): tiled grey.
-    var storeD = 0 - WORLD.minZ;
-    var store = box(W + 6, 0.4, storeD + 2, 0xd7d2c4);
-    store.position.set(midX, -0.2, (WORLD.minZ + 0) / 2);
-    scene.add(store);
+    var grass = box(W + 14, 1.0, D + 14, GCOL.grass);
+    grass.position.set(midX, -0.5, midZ);
+    scene.add(grass);
 
-    // checkerboard tiles on the store floor for readability
-    var tile = new THREE.Group();
-    for (var tx = WORLD.minX; tx < WORLD.maxX; tx += 4) {
-      for (var tz = WORLD.minZ; tz < 0; tz += 4) {
-        if (((tx + tz) / 4) % 2 === 0) {
-          var t = box(3.8, 0.06, 3.8, 0xc7c2b4);
-          t.position.set(tx + 2, 0.02, tz + 2);
-          tile.add(t);
+    var seed = 1;
+    function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+    var patches = new THREE.Group();
+    for (var i = 0; i < 26; i++) {
+      var pw = 3 + rnd() * 5;
+      var pch = box(pw, 0.06, pw * (0.7 + rnd() * 0.6), rnd() > 0.5 ? GCOL.grassDk : GCOL.grassLt);
+      pch.position.set(WORLD.minX - 4 + rnd() * (W + 8), 0.02, WORLD.minZ - 4 + rnd() * (D + 8));
+      pch.rotation.y = rnd() * Math.PI;
+      patches.add(pch);
+    }
+    scene.add(patches);
+
+    var storeFront = -0.6;
+    var storeD = storeFront - WORLD.minZ;
+    var floor = box(W + 4, 0.4, storeD, GCOL.storeFloor);
+    floor.position.set(midX, -0.2, (WORLD.minZ + storeFront) / 2);
+    scene.add(floor);
+
+    var tiles = new THREE.Group();
+    for (var tx = WORLD.minX - 1; tx < WORLD.maxX + 1; tx += 3) {
+      for (var tz = WORLD.minZ; tz < storeFront; tz += 3) {
+        if ((Math.round(tx) + Math.round(tz)) % 6 === 0) {
+          var t = box(2.9, 0.06, 2.9, GCOL.storeTile);
+          t.position.set(tx + 1.5, 0.03, tz + 1.5);
+          tiles.add(t);
         }
       }
     }
-    scene.add(tile);
+    scene.add(tiles);
 
-    // Farm floor (z>0): green soil.
-    var farmD = WORLD.maxZ - 0;
-    var farm = box(W + 6, 0.4, farmD + 2, 0x6fae54);
-    farm.position.set(midX, -0.2, (0 + WORLD.maxZ) / 2);
-    scene.add(farm);
+    gPath(0, midZ + 1, 5.0, D + 6);
+    gPath(WORLD.minX + 8, -2.5, 24, 5.0);
+    gPath(0, 7.5, W - 2, 4.0);
 
-    // soil patches on the farm
-    var soil = new THREE.Group();
-    for (var sx = WORLD.minX + 2; sx < WORLD.maxX; sx += 4) {
-      for (var sz = 2; sz < WORLD.maxZ; sz += 4) {
-        var p = box(3.4, 0.08, 3.4, 0x7a5a3a);
-        p.position.set(sx, 0.04, sz);
-        soil.add(p);
-      }
+    for (var rz = 3; rz <= 12; rz += 3.2) {
+      var rib = box(W - 2, 0.05, 0.5, GCOL.soilDk, { transparent: true, opacity: 0.5 });
+      rib.position.set(midX, 0.05, rz);
+      scene.add(rib);
     }
-    scene.add(soil);
 
-    // Boundary walls (low) around the whole lot.
-    var wallMat = 0xb9b1a0;
-    addWall(midX, WORLD.minZ - 0.5, W + 6, 1.2, 0.5, wallMat);   // back (store)
-    addWall(midX, WORLD.maxZ + 0.5, W + 6, 1.2, 0.5, wallMat);   // back (farm)
-    addWallV(WORLD.maxX + 0.5, 0, WORLD.maxZ - WORLD.minZ + 2, 1.2, 0.5, wallMat); // right
-    // left wall has the entrance gap near z=-1
-    addWallV(WORLD.minX - 0.5, -8, 14, 1.2, 0.5, wallMat);
+    var fg = new THREE.Group();
+    var nx = WORLD.minX - 1.5, xx = WORLD.maxX + 1.5;
+    var nz = WORLD.minZ - 1.5, xz = WORLD.maxZ + 1.5;
+    gFence(fg, nx, nz, xx, nz);
+    gFence(fg, nx, xz, xx, xz);
+    gFence(fg, xx, nz, xx, xz);
+    gFence(fg, nx, nz, nx, -4.5);
+    gFence(fg, nx, 2.5, nx, xz);
+    gFence(fg, nx + 2, 0, -3, 0);
+    gFence(fg, 3, 0, xx - 2, 0);
+    scene.add(fg);
 
-    // Entrance arch marker
-    var arch = box(0.6, 4, 0.6, 0xff7043);
-    arch.position.set(WORLD.minX + 0.2, 2, 2.2);
-    scene.add(arch);
-    var arch2 = arch.clone(); arch2.position.z = -4.2; scene.add(arch2);
-    var top = box(0.6, 0.6, 7, 0xff7043); top.position.set(WORLD.minX + 0.2, 4, -1); scene.add(top);
+    buildShopFacade(midX);
+    buildDecor();
+  }
 
-    // dividing fence between store and farm (z=0) with a gap in the middle
-    var fence = new THREE.Group();
-    for (var fx = WORLD.minX + 1; fx < WORLD.maxX; fx += 2) {
-      if (Math.abs(fx) < 3) continue; // gap to walk through
-      var post = box(0.25, 1.2, 0.25, 0x8a6b4a);
-      post.position.set(fx, 0.6, 0);
-      fence.add(post);
+  function gPath(cx, cz, w, d) {
+    var edge = box(w + 0.8, 0.08, d + 0.8, GCOL.pathEdge);
+    edge.position.set(cx, 0.04, cz);
+    scene.add(edge);
+    var p = box(w, 0.1, d, GCOL.path);
+    p.position.set(cx, 0.06, cz);
+    scene.add(p);
+  }
+
+  function gFence(parent, x1, z1, x2, z2) {
+    var dx = x2 - x1, dz = z2 - z1;
+    var len = Math.sqrt(dx * dx + dz * dz);
+    if (len < 0.1) return;
+    var n = Math.max(1, Math.round(len / 2.4));
+    for (var i = 0; i <= n; i++) {
+      var t = i / n;
+      var post = box(0.22, 1.1, 0.22, GCOL.fenceDk);
+      post.position.set(x1 + dx * t, 0.55, z1 + dz * t);
+      parent.add(post);
     }
-    scene.add(fence);
+    [0.45, 0.85].forEach(function (h) {
+      var rail = box(0.12, 0.16, len, GCOL.fence);
+      rail.position.set((x1 + x2) / 2, h, (z1 + z2) / 2);
+      rail.rotation.y = Math.atan2(dx, dz);
+      parent.add(rail);
+    });
   }
-  function addWall(x, z, w, h, d, color) {
-    var m = box(w, h, d, color); m.position.set(x, h / 2, z); scene.add(m);
+
+  function gAwning(width, depth, slats) {
+    var g = new THREE.Group();
+    var sw = width / slats;
+    for (var i = 0; i < slats; i++) {
+      var col = (i % 2 === 0) ? GCOL.awningA : GCOL.awningB;
+      var slat = box(sw * 0.98, 0.25, depth, col);
+      slat.position.set(-width / 2 + sw * (i + 0.5), 0, 0);
+      g.add(slat);
+      var tip = box(sw * 0.98, 0.5, 0.3, col);
+      tip.position.set(-width / 2 + sw * (i + 0.5), -0.28, depth / 2);
+      g.add(tip);
+    }
+    g.rotation.x = -0.32;
+    return g;
   }
-  function addWallV(x, z, d, h, w, color) {
-    var m = box(w, h, d, color); m.position.set(x, h / 2, z); scene.add(m);
+
+  function buildShopFacade(midX) {
+    var g = new THREE.Group();
+    var backZ = WORLD.minZ - 0.2;
+    var wall = box(WORLD.maxX - WORLD.minX + 3, 2.6, 0.5, 0xfbf3e4);
+    wall.position.set(midX, 1.3, backZ);
+    g.add(wall);
+    var trim = box(WORLD.maxX - WORLD.minX + 3.4, 0.4, 0.7, GCOL.woodDk);
+    trim.position.set(midX, 2.6, backZ);
+    g.add(trim);
+    var awning = gAwning(WORLD.maxX - WORLD.minX + 2, 3.2, 12);
+    awning.position.set(midX, 2.7, backZ + 1.6);
+    g.add(awning);
+    var boardFrame = box(9.4, 1.7, 0.18, GCOL.woodDk);
+    boardFrame.position.set(midX, 3.7, backZ - 0.02);
+    g.add(boardFrame);
+    var board = box(9, 1.4, 0.3, GCOL.signWood);
+    board.position.set(midX, 3.7, backZ + 0.1);
+    g.add(board);
+    [-2.6, 0, 2.6].forEach(function (ox, i) {
+      var c = [0xe23b3b, 0x8d55d9, 0xffd84a][i];
+      var fr = sphere(0.42, c, 12);
+      fr.position.set(midX + ox, 3.7, backZ + 0.3);
+      g.add(fr);
+    });
+    scene.add(g);
+  }
+
+  function buildDecor() {
+    var g = new THREE.Group();
+    [[-18, 12.5], [18, 12.5], [18, -2], [-18, 7], [14, 12], [-14, 13]]
+      .forEach(function (p) { g.add(gTree(p[0], p[1])); });
+    [[-15, -3, 0xe23b3b], [-15, -4.6, 0xffd84a], [12.5, -2.5, 0x8d55d9], [9.5, -2.6, 0xe23b3b]]
+      .forEach(function (p) { g.add(gCrate(p[0], p[1], p[2])); });
+    [[10, 3, 0xffd84a], [-10, 3, 0xe23b3b], [3.2, 12.5, 0x8d55d9]]
+      .forEach(function (p) { g.add(gBasket(p[0], p[1], p[2])); });
+    g.add(gLamp(WORLD.minX + 0.5, -4.5));
+    g.add(gLamp(WORLD.minX + 0.5, 2.5));
+    var seed = 7;
+    function rnd() { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; }
+    for (var i = 0; i < 20; i++) {
+      var x = WORLD.minX - 3 + rnd() * (WORLD.maxX - WORLD.minX + 6);
+      var z = WORLD.minZ - 3 + rnd() * (WORLD.maxZ - WORLD.minZ + 6);
+      if (x > WORLD.minX + 1 && x < WORLD.maxX - 1 && z > WORLD.minZ + 1 && z < WORLD.maxZ - 1) continue;
+      g.add(gFlower(x, z, [0xff5d8f, 0xffd23b, 0xff8a3b, 0xffffff][i % 4]));
+    }
+    scene.add(g);
+  }
+
+  function gTree(x, z) {
+    var g = new THREE.Group();
+    var trunk = cyl(0.32, 0.42, 1.6, GCOL.woodDk, 7);
+    trunk.position.y = 0.8;
+    g.add(trunk);
+    var c1 = sphere(1.5, GCOL.leaf, 10); c1.position.y = 2.5; c1.scale.set(1, 0.9, 1); g.add(c1);
+    var c2 = sphere(1.1, GCOL.leafDk, 10); c2.position.set(0.7, 2.0, 0.4); g.add(c2);
+    var c3 = sphere(1.05, GCOL.leaf, 10); c3.position.set(-0.7, 2.2, -0.3); g.add(c3);
+    [[0.6, 2.6, 0.8], [-0.5, 2.1, 0.9], [0.2, 3.1, -0.4]].forEach(function (p) {
+      var a = sphere(0.18, 0xe23b3b, 8);
+      a.position.set(p[0], p[1], p[2]);
+      g.add(a);
+    });
+    g.position.set(x, 0, z);
+    g.scale.setScalar(0.9);
+    return g;
+  }
+
+  function gCrate(x, z, fruitColor) {
+    var g = new THREE.Group();
+    var crate = box(1.5, 0.9, 1.1, GCOL.wood); crate.position.y = 0.45; g.add(crate);
+    var rim = box(1.6, 0.18, 1.2, GCOL.woodDk); rim.position.y = 0.92; g.add(rim);
+    [[-0.35, 0, -0.25], [0.35, 0, -0.25], [-0.35, 0, 0.25], [0.35, 0, 0.25], [0, 0.18, 0]].forEach(function (o) {
+      var fr = sphere(0.32, fruitColor, 10);
+      fr.position.set(o[0], 1.15 + o[1], o[2]);
+      g.add(fr);
+    });
+    g.position.set(x, 0, z);
+    return g;
+  }
+
+  function gBasket(x, z, fruitColor) {
+    var g = new THREE.Group();
+    var b = cyl(0.7, 0.55, 0.7, GCOL.fence, 12);
+    b.position.y = 0.35;
+    g.add(b);
+    [[-0.25, 0, 0], [0.25, 0, 0], [0, 0, 0.25], [0, 0.18, 0]].forEach(function (o) {
+      var fr = sphere(0.28, fruitColor, 10);
+      fr.position.set(o[0], 0.78 + o[1], o[2]);
+      g.add(fr);
+    });
+    g.position.set(x, 0, z);
+    return g;
+  }
+
+  function gLamp(x, z) {
+    var g = new THREE.Group();
+    var pole = cyl(0.1, 0.12, 3.2, GCOL.woodDk, 6);
+    pole.position.y = 1.6;
+    g.add(pole);
+    var head = box(0.5, 0.5, 0.5, 0xfff3b0);
+    head.position.y = 3.2;
+    g.add(head);
+    g.position.set(x, 0, z);
+    return g;
+  }
+
+  function gFlower(x, z, color) {
+    var g = new THREE.Group();
+    var stem = box(0.06, 0.4, 0.06, GCOL.leafDk);
+    stem.position.y = 0.2;
+    g.add(stem);
+    var head = sphere(0.16, color, 8);
+    head.position.y = 0.42;
+    g.add(head);
+    g.position.set(x, 0, z);
+    return g;
+  }
+
+  function buildDistrictSigns() {
+    function mk(text) {
+      var el = document.createElement('div');
+      el.style.cssText = 'position:absolute;transform:translate(-50%,-50%);' +
+        'font-size:17px;font-weight:800;color:#fff;white-space:nowrap;letter-spacing:1px;' +
+        'pointer-events:none;text-shadow:0 2px 4px rgba(0,0,0,.55),0 0 2px rgba(0,0,0,.5);';
+      el.innerHTML = text;
+      floatLayer.appendChild(el);
+      return el;
+    }
+    districtSigns = [
+      { el: mk('FRUIT SHOP'), x: 0, y: 5.6, z: WORLD.minZ + 0.2 },
+      { el: mk('FARM'), x: 0, y: 3.0, z: WORLD.maxZ - 1.5 }
+    ];
   }
 
   // ---- player ------------------------------------------------------------
@@ -762,6 +946,10 @@
     st.pads.forEach(syncPad);
     syncCustomers(st.customers);
     syncFloats(st.floats);
+
+    for (var dsI = 0; dsI < districtSigns.length; dsI++) {
+      projectLabel(districtSigns[dsI].el, districtSigns[dsI].x, districtSigns[dsI].y, districtSigns[dsI].z, null);
+    }
 
     // tutorial beacon
     if (st.tutorialTarget) {

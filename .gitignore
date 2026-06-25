@@ -1,1 +1,6 @@
 outputs/
+node_modules/
+# local test/dev artifacts (anchored to repo root so assets/fruit/*.png is unaffected)
+/*.png
+/*.zip
+/scratch_*.js
