@@ -24,11 +24,9 @@
   // Each product has a price (what a customer pays) and a colour hint that the
   // renderer may use. Keeping it here keeps logic the single source of truth.
   var PRODUCTS = {
-    apple:  { price: 3,  color: 0xe23b3b },
-    carrot: { price: 4,  color: 0xe8902e },
-    milk:   { price: 6,  color: 0xf2f2f7 },
-    bread:  { price: 8,  color: 0xc8923f },
-    grape:  { price: 11, color: 0x7d4fc4 }
+    apple:  { price: 3, color: 0xe23b3b },
+    banana: { price: 5, color: 0xffd84a },
+    grape:  { price: 8, color: 0x8d55d9 }
   };
 
   // --- Tunables -----------------------------------------------------------
@@ -90,9 +88,9 @@
     // layout: two rows.
     var shelfDefs = [
       { x: -6,  z: -5,  type: 'apple',  locked: false },
-      { x: 0,   z: -5,  type: 'carrot', locked: false },
-      { x: 6,   z: -5,  type: 'milk',   locked: false },
-      { x: -6,  z: -10, type: 'bread',  locked: true  },
+      { x: 0,   z: -5,  type: 'banana', locked: false },
+      { x: 6,   z: -5,  type: 'grape',  locked: false },
+      { x: -6,  z: -10, type: 'banana', locked: true  },
       { x: 0,   z: -10, type: 'grape',  locked: true  },
       { x: 6,   z: -10, type: 'apple',  locked: true  }
     ];
@@ -106,9 +104,9 @@
     // Sources: farm plots in the farm area (z>0). Same products as shelves.
     var srcDefs = [
       { x: -6,  z: 5,  type: 'apple'  },
-      { x: 0,   z: 5,  type: 'carrot' },
-      { x: 6,   z: 5,  type: 'milk'   },
-      { x: -6,  z: 10, type: 'bread'  },
+      { x: 0,   z: 5,  type: 'banana' },
+      { x: 6,   z: 5,  type: 'grape'  },
+      { x: -6,  z: 10, type: 'apple'  },
       { x: 0,   z: 10, type: 'grape'  }
     ];
     srcDefs.forEach(function (d) {
@@ -120,7 +118,7 @@
 
     // Upgrade pads. `kind` tells the logic what to do when fully paid.
     state.pads = [
-      mkPad(-6, -10, 'unlockShelf', 60,  'Bread Shelf',  { shelfIndex: 3 }),
+      mkPad(-6, -10, 'unlockShelf', 60,  'Banana Shelf', { shelfIndex: 3 }),
       mkPad(0,  -10, 'unlockShelf', 120, 'Grape Shelf',  { shelfIndex: 4 }),
       mkPad(6,  -10, 'unlockShelf', 200, 'Apple Shelf 2',{ shelfIndex: 5 }),
       mkPad(WORLD.minX + 2, 2, 'carryCap', 80, 'Carry +4', { amount: 4 }),

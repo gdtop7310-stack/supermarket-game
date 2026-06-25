@@ -58,6 +58,48 @@
   function sphere(r, color, seg) {
     return new THREE.Mesh(new THREE.SphereGeometry(r, seg || 16, seg || 16), mat(color));
   }
+  function fruitMesh(type, scale) {
+    scale = scale || 1;
+    var g = new THREE.Group();
+    if (type === 'banana') {
+      var peel = new THREE.Mesh(
+        new THREE.TorusGeometry(0.28 * scale, 0.075 * scale, 10, 18, Math.PI * 1.35),
+        mat(0xffd84a)
+      );
+      peel.rotation.set(Math.PI * 0.18, 0, Math.PI * 0.18);
+      peel.position.set(0.04 * scale, 0.06 * scale, 0);
+      g.add(peel);
+      var tip1 = sphere(0.06 * scale, 0x8a5a22, 8); tip1.position.set(-0.27 * scale, 0.06 * scale, 0.02 * scale); g.add(tip1);
+      var tip2 = sphere(0.06 * scale, 0x8a5a22, 8); tip2.position.set(0.31 * scale, 0.11 * scale, -0.02 * scale); g.add(tip2);
+    } else if (type === 'grape') {
+      var grapeColor = 0x7d45c7;
+      var pts = [
+        [0, 0.16, 0], [-0.13, 0.04, 0], [0.13, 0.04, 0],
+        [-0.08, -0.1, 0], [0.08, -0.1, 0], [0, -0.23, 0]
+      ];
+      for (var i = 0; i < pts.length; i++) {
+        var berry = sphere(0.115 * scale, grapeColor, 10);
+        berry.position.set(pts[i][0] * scale, pts[i][1] * scale, pts[i][2] * scale);
+        g.add(berry);
+      }
+      var stemG = cyl(0.025 * scale, 0.025 * scale, 0.22 * scale, 0x5b7f35, 8);
+      stemG.position.set(0, 0.34 * scale, 0);
+      stemG.rotation.z = 0.35;
+      g.add(stemG);
+    } else {
+      var apple = sphere(0.22 * scale, 0xe23b3b, 16);
+      apple.scale.set(1.05, 0.95, 1.05);
+      g.add(apple);
+      var stem = cyl(0.025 * scale, 0.025 * scale, 0.18 * scale, 0x6b3e1f, 8);
+      stem.position.set(0, 0.23 * scale, 0);
+      g.add(stem);
+      var leaf = sphere(0.07 * scale, 0x3aa655, 8);
+      leaf.position.set(0.09 * scale, 0.27 * scale, 0);
+      leaf.scale.set(1.6, 0.55, 0.9);
+      g.add(leaf);
+    }
+    return g;
+  }
 
   // ---- scene setup -------------------------------------------------------
   function init(canvas) {
@@ -302,18 +344,20 @@
     var f1 = sphere(0.24, light, 16); f1.position.set(-0.25, 0.08, 0.16); f1.scale.set(1.15, 0.65, 1.45); g.add(f1);
     var f2 = sphere(0.24, light, 16); f2.position.set(0.25, 0.08, 0.16); f2.scale.set(1.15, 0.65, 1.45); g.add(f2);
     g.userData.legs = [l1, l2];
+    g.userData.arms = [a1, a2];
+    g.userData.feet = [f1, f2];
+    g.userData.bodyParts = [hips, chest, belly, head, neck];
     return g;
   }
 
   function buildCarryStack(type, count) {
     while (carryGroup.children.length) carryGroup.remove(carryGroup.children[0]);
     if (!type || count <= 0) return;
-    var c = colorHex(type);
     var n = Math.min(count, 10);
     for (var i = 0; i < n; i++) {
-      var b = box(0.55, 0.32, 0.55, c);
-      b.position.set(0, 2.55 + i * 0.34, 0.05);
-      carryGroup.add(b);
+      var item = fruitMesh(type, 0.9);
+      item.position.set((i % 2 ? 0.18 : -0.18), 2.48 + i * 0.2, 0.08);
+      carryGroup.add(item);
     }
   }
 
@@ -334,8 +378,8 @@
     var pc = colorHex(s.productType);
     for (var tier = 0; tier < 2; tier++) {
       for (var col = 0; col < 4; col++) {
-        var item = box(0.45, 0.45, 0.8, pc);
-        item.position.set(-0.85 + col * 0.57, tier === 0 ? 1.2 : 1.8, 0.05);
+        var item = fruitMesh(s.productType, 0.85);
+        item.position.set(-0.85 + col * 0.57, tier === 0 ? 1.2 : 1.8, 0.12);
         item.visible = false;
         g.add(item);
         fillBars.push(item);
@@ -394,15 +438,16 @@
     sign.position.set(0, 2.0, -1.0); g.add(sign);
     var post = box(0.12, 2.0, 0.12, 0x6b4a2c); post.position.set(0, 1.0, -1.0); g.add(post);
 
-    // crop plants (3x3 grid). Scale conveys growth+stock.
+    // crop plants (3x3 grid). Each slot uses a recognizable fruit shape.
     var crops = [];
-    var pc = colorHex(s.productType);
     for (var ix = 0; ix < 3; ix++) {
       for (var iz = 0; iz < 3; iz++) {
         var stalk = new THREE.Group();
-        var stem = box(0.12, 0.5, 0.12, 0x2f7d32); stem.position.y = 0.25; stalk.add(stem);
-        var fruit = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), mat(pc));
-        fruit.position.y = 0.6; stalk.add(fruit);
+        var stem = box(0.08, 0.34, 0.08, 0x2f7d32); stem.position.y = 0.18; stalk.add(stem);
+        var leaves = sphere(0.18, 0x3aa655, 8); leaves.position.y = 0.42; leaves.scale.set(1.4, 0.35, 1.0); stalk.add(leaves);
+        var fruit = fruitMesh(s.productType, 0.82);
+        fruit.position.y = 0.7;
+        stalk.add(fruit);
         stalk.position.set(-0.75 + ix * 0.75, 0.5, -0.75 + iz * 0.75);
         g.add(stalk);
         crops.push(stalk);
@@ -499,6 +544,10 @@
     g.userData.body = body;
     g.userData.tintMeshes = [body, a1, a2];
     g.userData.legMeshes = [l1, l2];
+    g.userData.legs = [l1, l2];
+    g.userData.arms = [a1, a2];
+    g.userData.feet = [f1, f2];
+    g.userData.bodyParts = [body, head];
     scene.add(g);
     return g;
   }
@@ -526,6 +575,7 @@
       }
       m.position.set(c.x, 0, c.z);
       m.rotation.y = c.angle;
+      animateHumanoid(m, c.x, c.z, 0.85, 0.85);
       var item = m.userData.item;
       if (c.carryType) {
         item.visible = true;
@@ -542,6 +592,40 @@
         customerPool.push(mm);
         delete customerMap[id];
       }
+    }
+  }
+
+  function animateHumanoid(g, x, z, stride, bounce) {
+    var ud = g.userData || {};
+    var hasPrev = typeof ud.prevX === 'number' && typeof ud.prevZ === 'number';
+    var moved = hasPrev ? Math.sqrt(Math.pow(x - ud.prevX, 2) + Math.pow(z - ud.prevZ, 2)) : 0;
+    ud.prevX = x;
+    ud.prevZ = z;
+    var walking = moved > 0.012;
+    var phase = legPhase * (walking ? 1 : 0.45);
+    var swing = walking ? Math.sin(phase) : Math.sin(phase) * 0.12;
+    var lift = walking ? Math.abs(Math.sin(phase)) : 0;
+
+    g.position.y = walking ? 0.05 + lift * 0.08 * bounce : 0;
+    g.rotation.z = walking ? Math.sin(phase) * 0.035 : 0;
+
+    var legs = ud.legs || ud.legMeshes;
+    if (legs) {
+      if (ud.legBaseY0 == null) { ud.legBaseY0 = legs[0].position.y; ud.legBaseY1 = legs[1].position.y; }
+      legs[0].rotation.x = swing * 0.58 * stride;
+      legs[1].rotation.x = -swing * 0.58 * stride;
+      legs[0].position.y = ud.legBaseY0 + Math.max(0, swing) * 0.06;
+      legs[1].position.y = ud.legBaseY1 + Math.max(0, -swing) * 0.06;
+    }
+    if (ud.arms) {
+      ud.arms[0].rotation.x = -swing * 0.42 * stride;
+      ud.arms[1].rotation.x = swing * 0.42 * stride;
+    }
+    if (ud.feet) {
+      ud.feet[0].rotation.x = Math.max(0, swing) * 0.45;
+      ud.feet[1].rotation.x = Math.max(0, -swing) * 0.45;
+      ud.feet[0].position.z = 0.16 + swing * 0.08;
+      ud.feet[1].position.z = 0.16 - swing * 0.08;
     }
   }
 
@@ -614,14 +698,8 @@
     playerGroup.position.set(st.player.x, 0, st.player.z);
     playerGroup.rotation.y = st.player.angle;
     buildCarryStack(st.player.carryType, st.player.carryCount);
-    // simple walking bob
-    var moving = (st.player.carryCount >= 0); // always slight idle
     legPhase += dt * 10;
-    var legs = playerGroup.userData.legs;
-    if (legs) {
-      legs[0].rotation.x = Math.sin(legPhase) * 0.4;
-      legs[1].rotation.x = -Math.sin(legPhase) * 0.4;
-    }
+    animateHumanoid(playerGroup, st.player.x, st.player.z, 1.15, 1.15);
 
     // entities
     st.shelves.forEach(syncShelf);
