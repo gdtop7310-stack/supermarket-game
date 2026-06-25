@@ -96,6 +96,7 @@
 
   function onPointerDown(e) {
     if (e.button != null && e.button !== 0) return;
+    if (e.cancelable) e.preventDefault();
     var rect = canvasEl.getBoundingClientRect();
     pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
