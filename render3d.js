@@ -20,6 +20,12 @@
   var pointer = new THREE.Vector2();
   var groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
   var clickPoint = new THREE.Vector3();
+  var dragStick, dragKnob;
+  var dragPointerId = null;
+  var dragOrigin = { x: 0, y: 0 };
+  var dragActive = false;
+  var DRAG_DEADZONE = 10;
+  var DRAG_RADIUS = 58;
 
   // entity pools keyed by id
   var playerGroup, carryGroup;
@@ -91,12 +97,71 @@
     resize();
     window.addEventListener('resize', resize);
     canvasEl.addEventListener('pointerdown', onPointerDown);
+    canvasEl.addEventListener('pointermove', onPointerMove);
+    canvasEl.addEventListener('pointerup', onPointerUp);
+    canvasEl.addEventListener('pointercancel', onPointerCancel);
     requestAnimationFrame(loop);
   }
 
   function onPointerDown(e) {
     if (e.button != null && e.button !== 0) return;
     if (e.cancelable) e.preventDefault();
+    dragPointerId = e.pointerId;
+    dragOrigin.x = e.clientX;
+    dragOrigin.y = e.clientY;
+    dragActive = false;
+    showDragStick(e.clientX, e.clientY, 0, 0);
+    if (canvasEl.setPointerCapture) {
+      try { canvasEl.setPointerCapture(e.pointerId); } catch (err) {}
+    }
+  }
+
+  function onPointerMove(e) {
+    if (dragPointerId !== e.pointerId) return;
+    if (e.cancelable) e.preventDefault();
+    var dx = e.clientX - dragOrigin.x;
+    var dy = e.clientY - dragOrigin.y;
+    var len = Math.sqrt(dx * dx + dy * dy);
+    var clampedX = dx;
+    var clampedY = dy;
+    if (len > DRAG_RADIUS) {
+      clampedX = dx / len * DRAG_RADIUS;
+      clampedY = dy / len * DRAG_RADIUS;
+    }
+    showDragStick(dragOrigin.x, dragOrigin.y, clampedX, clampedY);
+    if (len > DRAG_DEADZONE) {
+      dragActive = true;
+      Game.setMove(clampedX / DRAG_RADIUS, clampedY / DRAG_RADIUS);
+    } else if (dragActive) {
+      Game.setMove(0, 0);
+    }
+  }
+
+  function onPointerUp(e) {
+    if (dragPointerId !== e.pointerId) return;
+    if (e.cancelable) e.preventDefault();
+    if (canvasEl.releasePointerCapture) {
+      try { canvasEl.releasePointerCapture(e.pointerId); } catch (err) {}
+    }
+    if (dragActive) {
+      Game.setMove(0, 0);
+    } else {
+      moveToClickedGround(e);
+    }
+    dragPointerId = null;
+    dragActive = false;
+    hideDragStick();
+  }
+
+  function onPointerCancel(e) {
+    if (dragPointerId !== e.pointerId) return;
+    Game.setMove(0, 0);
+    dragPointerId = null;
+    dragActive = false;
+    hideDragStick();
+  }
+
+  function moveToClickedGround(e) {
     var rect = canvasEl.getBoundingClientRect();
     pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
     pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
@@ -104,6 +169,29 @@
     if (raycaster.ray.intersectPlane(groundPlane, clickPoint)) {
       Game.setMoveTarget(clickPoint.x, clickPoint.z);
     }
+  }
+
+  function ensureDragStick() {
+    if (dragStick) return;
+    dragStick = document.createElement('div');
+    dragStick.id = 'freeStick';
+    dragStick.innerHTML = '<div id="freeStickBase"><div id="freeStickKnob"></div></div>';
+    document.body.appendChild(dragStick);
+    dragKnob = document.getElementById('freeStickKnob');
+  }
+
+  function showDragStick(x, y, dx, dy) {
+    ensureDragStick();
+    dragStick.style.display = 'block';
+    dragStick.style.left = x + 'px';
+    dragStick.style.top = y + 'px';
+    dragKnob.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+  }
+
+  function hideDragStick() {
+    if (!dragStick) return;
+    dragStick.style.display = 'none';
+    dragKnob.style.transform = 'translate(0,0)';
   }
 
   function resize() {
