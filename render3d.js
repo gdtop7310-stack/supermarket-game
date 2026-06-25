@@ -78,7 +78,7 @@
         [-0.08, -0.1, 0], [0.08, -0.1, 0], [0, -0.23, 0]
       ];
       for (var i = 0; i < pts.length; i++) {
-        var berry = sphere(0.115 * scale, grapeColor, 10);
+        var berry = sphere(0.115 * scale, grapeColor, 16);
         berry.position.set(pts[i][0] * scale, pts[i][1] * scale, pts[i][2] * scale);
         g.add(berry);
       }
@@ -87,7 +87,7 @@
       stemG.rotation.z = 0.35;
       g.add(stemG);
     } else {
-      var apple = sphere(0.22 * scale, 0xe23b3b, 16);
+      var apple = sphere(0.22 * scale, 0xe23b3b, 24);
       apple.scale.set(1.05, 0.95, 1.05);
       g.add(apple);
       var stem = cyl(0.025 * scale, 0.025 * scale, 0.18 * scale, 0x6b3e1f, 8);
@@ -602,30 +602,53 @@
     ud.prevX = x;
     ud.prevZ = z;
     var walking = moved > 0.012;
-    var phase = legPhase * (walking ? 1 : 0.45);
-    var swing = walking ? Math.sin(phase) : Math.sin(phase) * 0.12;
-    var lift = walking ? Math.abs(Math.sin(phase)) : 0;
+    var phase = legPhase * (walking ? 1.45 : 0.42);
+    var s = Math.sin(phase);
+    var c = Math.cos(phase);
+    var stepA = Math.max(0, s);
+    var stepB = Math.max(0, -s);
+    var swing = walking ? s : s * 0.08;
+    var lift = walking ? Math.abs(s) : 0;
 
-    g.position.y = walking ? 0.05 + lift * 0.08 * bounce : 0;
-    g.rotation.z = walking ? Math.sin(phase) * 0.035 : 0;
+    g.position.y = walking ? 0.06 + lift * 0.11 * bounce : 0;
+    g.rotation.x = walking ? -0.08 * stride + c * 0.025 : 0;
+    g.rotation.z = walking ? s * 0.045 : 0;
 
     var legs = ud.legs || ud.legMeshes;
     if (legs) {
       if (ud.legBaseY0 == null) { ud.legBaseY0 = legs[0].position.y; ud.legBaseY1 = legs[1].position.y; }
-      legs[0].rotation.x = swing * 0.58 * stride;
-      legs[1].rotation.x = -swing * 0.58 * stride;
-      legs[0].position.y = ud.legBaseY0 + Math.max(0, swing) * 0.06;
-      legs[1].position.y = ud.legBaseY1 + Math.max(0, -swing) * 0.06;
+      legs[0].rotation.x = swing * 0.82 * stride;
+      legs[1].rotation.x = -swing * 0.82 * stride;
+      legs[0].position.y = ud.legBaseY0 + stepA * 0.1 * bounce;
+      legs[1].position.y = ud.legBaseY1 + stepB * 0.1 * bounce;
     }
     if (ud.arms) {
-      ud.arms[0].rotation.x = -swing * 0.42 * stride;
-      ud.arms[1].rotation.x = swing * 0.42 * stride;
+      if (ud.armBaseZ0 == null) { ud.armBaseZ0 = ud.arms[0].rotation.z; ud.armBaseZ1 = ud.arms[1].rotation.z; }
+      ud.arms[0].rotation.x = -swing * 0.62 * stride;
+      ud.arms[1].rotation.x = swing * 0.62 * stride;
+      ud.arms[0].rotation.z = ud.armBaseZ0 + (walking ? c * 0.08 : 0);
+      ud.arms[1].rotation.z = ud.armBaseZ1 - (walking ? c * 0.08 : 0);
     }
     if (ud.feet) {
-      ud.feet[0].rotation.x = Math.max(0, swing) * 0.45;
-      ud.feet[1].rotation.x = Math.max(0, -swing) * 0.45;
-      ud.feet[0].position.z = 0.16 + swing * 0.08;
-      ud.feet[1].position.z = 0.16 - swing * 0.08;
+      if (ud.footBaseY0 == null) {
+        ud.footBaseY0 = ud.feet[0].position.y; ud.footBaseY1 = ud.feet[1].position.y;
+        ud.footBaseZ0 = ud.feet[0].position.z; ud.footBaseZ1 = ud.feet[1].position.z;
+      }
+      ud.feet[0].rotation.x = stepA * 0.75 - stepB * 0.18;
+      ud.feet[1].rotation.x = stepB * 0.75 - stepA * 0.18;
+      ud.feet[0].position.y = ud.footBaseY0 + stepA * 0.09 * bounce;
+      ud.feet[1].position.y = ud.footBaseY1 + stepB * 0.09 * bounce;
+      ud.feet[0].position.z = ud.footBaseZ0 + s * 0.16 * stride;
+      ud.feet[1].position.z = ud.footBaseZ1 - s * 0.16 * stride;
+    }
+    if (ud.bodyParts) {
+      if (ud.bodyBaseY == null) {
+        ud.bodyBaseY = [];
+        for (var bi = 0; bi < ud.bodyParts.length; bi++) ud.bodyBaseY[bi] = ud.bodyParts[bi].position.y;
+      }
+      for (var bj = 0; bj < ud.bodyParts.length; bj++) {
+        ud.bodyParts[bj].position.y = ud.bodyBaseY[bj] + (walking ? lift * 0.025 * bounce : Math.sin(phase) * 0.006);
+      }
     }
   }
 
