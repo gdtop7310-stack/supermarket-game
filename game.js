@@ -40,6 +40,7 @@
   var SHELF_CAPACITY    = 20;
   var SHELF_BUY_INTERVAL= 0.5;   // sec a customer spends grabbing 1 item
   var CHECKOUT_TIME     = 0.9;   // sec to process one customer at checkout
+  var CUSTOMER_MAX      = 6;
   var CUSTOMER_SPAWN    = 2.4;   // base sec between customer spawns
   var PAD_PAY_RATE      = 90;    // $ / sec drained while standing on a pad
   var CASHIER_HIRE_COST = 120;
@@ -326,9 +327,10 @@
   }
 
   function spawnCustomer() {
+    if (state.customers.length >= CUSTOMER_MAX) return;
     var shelves = unlockedShelvesWithStock();
     if (shelves.length === 0) return; // nothing to buy yet
-    var target = shelves[(_ids + state.customers.length) % shelves.length];
+    var target = shelves[Math.floor(Math.random() * shelves.length)];
     state.customers.push({
       id: nid('cust'),
       x: WORLD.minX + 1, z: -1,
@@ -482,6 +484,10 @@
   }
 
   function updateSpawns(dt) {
+    if (state.customers.length >= CUSTOMER_MAX) {
+      state._spawnT = CUSTOMER_SPAWN;
+      return;
+    }
     state._spawnT -= dt;
     if (state._spawnT <= 0) {
       spawnCustomer();

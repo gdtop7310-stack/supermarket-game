@@ -564,34 +564,35 @@
     var g = new THREE.Group();
     g.position.set(s.x, 0, s.z);
 
-    var frameColor = 0x9aa3ad;
-    // base + two tiers
-    var base = box(2.4, 0.5, 1.2, frameColor); base.position.y = 0.25; g.add(base);
-    var t1 = box(2.4, 0.12, 1.2, frameColor); t1.position.y = 0.9; g.add(t1);
-    var t2 = box(2.4, 0.12, 1.2, frameColor); t2.position.y = 1.5; g.add(t2);
-    var backP = box(2.4, 1.6, 0.12, 0xb7bec6); backP.position.set(0, 1.0, -0.55); g.add(backP);
+    var frameColor = 0xd7c09a;
+    // Single wide angled produce table. It keeps all 20 items visible at a
+    // readable size instead of shrinking them across several tiers.
+    var base = box(3.8, 0.45, 1.9, frameColor); base.position.y = 0.23; g.add(base);
+    var table = box(3.65, 0.16, 1.85, 0xf0dfb9); table.position.y = 0.82; table.rotation.x = -0.18; g.add(table);
+    var frontLip = box(3.9, 0.24, 0.16, 0xb98b54); frontLip.position.set(0, 0.95, 0.92); g.add(frontLip);
+    var backLip = box(3.9, 0.28, 0.16, 0xb98b54); backLip.position.set(0, 1.2, -0.92); g.add(backLip);
+    var sideL = box(0.16, 0.28, 1.9, 0xb98b54); sideL.position.set(-1.95, 1.06, 0); g.add(sideL);
+    var sideR = box(0.16, 0.28, 1.9, 0xb98b54); sideR.position.set(1.95, 1.06, 0); g.add(sideR);
 
-    // 20 visible product slots: each item shown represents one shelf stock.
+    // 20 visible product slots: one fruit image equals one shelf stock.
     var fillBars = [];
     var pc = colorHex(s.productType);
-    for (var tier = 0; tier < 2; tier++) {
-      for (var row = 0; row < 2; row++) {
-        for (var col = 0; col < 5; col++) {
-          var item = fruitMesh(s.productType, 0.46);
-          item.position.set(-0.92 + col * 0.46, tier === 0 ? 1.18 : 1.76, row === 0 ? -0.08 : 0.32);
-          item.visible = false;
-          g.add(item);
-          fillBars.push(item);
-        }
+    for (var row = 0; row < 4; row++) {
+      for (var col = 0; col < 5; col++) {
+        var item = fruitMesh(s.productType, 0.74);
+        item.position.set(-1.35 + col * 0.68, 1.02 + row * 0.09, 0.58 - row * 0.38);
+        item.visible = false;
+        g.add(item);
+        fillBars.push(item);
       }
     }
 
     // hanging sign with product colour
-    var sign = box(1.6, 0.5, 0.1, pc); sign.position.set(0, 2.5, 0); g.add(sign);
-    var post = box(0.1, 1.0, 0.1, 0x6b7178); post.position.set(0, 2.1, 0); g.add(post);
+    var sign = box(1.8, 0.48, 0.1, pc); sign.position.set(0, 2.2, -0.72); g.add(sign);
+    var post = box(0.1, 0.9, 0.1, 0x6b7178); post.position.set(0, 1.78, -0.72); g.add(post);
 
     // structural meshes we dim to a "ghost" when the shelf is locked
-    var frame = [base, t1, t2, backP, sign, post];
+    var frame = [base, table, frontLip, backLip, sideL, sideR, sign, post];
 
     // floating padlock shown only while locked
     var lock = new THREE.Group();
