@@ -565,35 +565,50 @@
     var g = new THREE.Group();
     g.position.set(s.x, 0, s.z);
 
-    var frameColor = 0xd7c09a;
-    // Single wide angled produce table. It keeps all 20 items visible at a
-    // readable size instead of shrinking them across several tiers.
-    var base = box(3.8, 0.45, 1.9, frameColor); base.position.y = 0.23; g.add(base);
-    var table = box(3.65, 0.16, 1.85, 0xf0dfb9); table.position.y = 0.82; table.rotation.x = -0.18; g.add(table);
-    var frontLip = box(3.9, 0.24, 0.16, 0xb98b54); frontLip.position.set(0, 0.95, 0.92); g.add(frontLip);
-    var backLip = box(3.9, 0.28, 0.16, 0xb98b54); backLip.position.set(0, 1.2, -0.92); g.add(backLip);
-    var sideL = box(0.16, 0.28, 1.9, 0xb98b54); sideL.position.set(-1.95, 1.06, 0); g.add(sideL);
-    var sideR = box(0.16, 0.28, 1.9, 0xb98b54); sideR.position.set(1.95, 1.06, 0); g.add(sideR);
-
-    // 20 visible product slots: one fruit image equals one shelf stock.
-    var fillBars = [];
+    var woodLt = 0xf2e3c0, woodMd = 0xd7af74, woodDk = 0xb07d44;
     var pc = colorHex(s.productType);
+    var W = 5.6, Dp = 2.8;
+
+    // Fruit-stall as a stepped/terraced stand: 4 rows climb up and back so the
+    // camera sees every fruit large and clearly, instead of a tiny crowded grid.
+    var skirt = box(W + 0.2, 0.34, Dp + 0.2, woodDk); skirt.position.y = 0.17; g.add(skirt);
+    var base = box(W, 0.55, Dp, woodMd); base.position.y = 0.45; g.add(base);
+    var legFL = box(0.26, 0.7, 0.26, woodDk); legFL.position.set(-W / 2 + 0.25, 0.35, Dp / 2 - 0.25); g.add(legFL);
+    var legFR = box(0.26, 0.7, 0.26, woodDk); legFR.position.set(W / 2 - 0.25, 0.35, Dp / 2 - 0.25); g.add(legFR);
+
+    // structural meshes we dim to a "ghost" when the shelf is locked
+    var frame = [skirt, base, legFL, legFR];
+
+    // 20 product slots over 4 terraced rows × 5 columns. One fruit = one stock.
+    // Bigger sprites (scale 1.1) on wide spacing keep each apple/banana/grape
+    // individually readable from the angled view.
+    var fillBars = [];
+    var colX = [-2.24, -1.12, 0, 1.12, 2.24];
     for (var row = 0; row < 4; row++) {
+      var stepY = 0.72 + row * 0.30;
+      var stepZ = 0.92 - row * 0.55;
+      var tread = box(W - 0.5, 0.34, 0.72, row % 2 ? woodLt : woodMd);
+      tread.position.set(0, stepY, stepZ); g.add(tread); frame.push(tread);
+      var ledge = box(W - 0.5, 0.12, 0.14, woodDk);
+      ledge.position.set(0, stepY + 0.2, stepZ + 0.36); g.add(ledge); frame.push(ledge);
       for (var col = 0; col < 5; col++) {
-        var item = fruitMesh(s.productType, 0.74);
-        item.position.set(-1.35 + col * 0.68, 1.02 + row * 0.09, 0.58 - row * 0.38);
+        var item = fruitMesh(s.productType, 1.1);
+        item.position.set(colX[col], stepY + 0.62, stepZ + 0.06);
+        // front rows draw on top so nothing important is hidden
+        if (item.userData.sprite) item.userData.sprite.renderOrder = 4 - row;
         item.visible = false;
         g.add(item);
         fillBars.push(item);
       }
     }
 
-    // hanging sign with product colour
-    var sign = box(1.8, 0.48, 0.1, pc); sign.position.set(0, 2.2, -0.72); g.add(sign);
-    var post = box(0.1, 0.9, 0.1, 0x6b7178); post.position.set(0, 1.78, -0.72); g.add(post);
-
-    // structural meshes we dim to a "ghost" when the shelf is locked
-    var frame = [base, table, frontLip, backLip, sideL, sideR, sign, post];
+    // tall back signboard (product colour) on two posts
+    var board = box(2.6, 0.72, 0.12, pc); board.position.set(0, 2.78, -1.08); g.add(board);
+    var boardFrame = box(2.84, 0.96, 0.06, woodDk); boardFrame.position.set(0, 2.78, -1.13); g.add(boardFrame);
+    var postL = box(0.14, 1.8, 0.14, woodDk); postL.position.set(-1.12, 1.9, -1.08); g.add(postL);
+    var postR = box(0.14, 1.8, 0.14, woodDk); postR.position.set(1.12, 1.9, -1.08); g.add(postR);
+    var sign = board;
+    frame.push(board, boardFrame, postL, postR);
 
     // floating padlock shown only while locked
     var lock = new THREE.Group();
