@@ -811,9 +811,31 @@
     var l2 = cyl(0.14, 0.13, 0.55, 0x8652cc, 12); l2.position.set(0.18, 0.34, 0); g.add(l2);
     var f1 = sphere(0.17, 0xf2ccff, 12); f1.position.set(-0.18, 0.06, 0.12); f1.scale.set(1.05, 0.6, 1.3); g.add(f1);
     var f2 = sphere(0.17, 0xf2ccff, 12); f2.position.set(0.18, 0.06, 0.12); f2.scale.set(1.05, 0.6, 1.3); g.add(f2);
-    var item = box(0.5, 0.5, 0.5, 0xffffff); item.position.set(0, 2.12, 0); item.visible = false;
-    g.add(item);
-    g.userData.item = item;
+    // Products are carried in a small hand basket, rather than as a floating
+    // cube above the customer's head.
+    var basket = new THREE.Group();
+    basket.position.set(0, 0.98, 0.48);
+    var basketWood = 0xb9824a, basketDark = 0x82502b;
+    var bottom = box(0.84, 0.12, 0.56, basketDark); bottom.position.y = 0.02; basket.add(bottom);
+    var front = box(0.84, 0.28, 0.07, basketWood); front.position.set(0, 0.15, 0.28); basket.add(front);
+    var back = box(0.84, 0.22, 0.07, basketWood); back.position.set(0, 0.12, -0.28); basket.add(back);
+    var sideL = box(0.07, 0.25, 0.56, basketWood); sideL.position.set(-0.385, 0.14, 0); basket.add(sideL);
+    var sideR = box(0.07, 0.25, 0.56, basketWood); sideR.position.set(0.385, 0.14, 0); basket.add(sideR);
+    var handle = new THREE.Mesh(new THREE.TorusGeometry(0.27, 0.035, 6, 12, Math.PI),
+      new THREE.MeshLambertMaterial({ color: basketDark }));
+    handle.rotation.y = Math.PI / 2; handle.position.set(0, 0.42, 0); basket.add(handle);
+    var basketFruit = {};
+    ['apple', 'banana', 'grape'].forEach(function (type) {
+      var fruit = fruitMesh(type, 0.46);
+      fruit.position.set(0, 0.46, 0.02);
+      fruit.visible = false;
+      basket.add(fruit);
+      basketFruit[type] = fruit;
+    });
+    basket.visible = false;
+    g.add(basket);
+    g.userData.basket = basket;
+    g.userData.basketFruit = basketFruit;
     g.userData.body = body;
     g.userData.tintMeshes = [body, a1, a2];
     g.userData.legMeshes = [l1, l2];
@@ -849,12 +871,14 @@
       m.position.set(c.x, 0, c.z);
       m.rotation.y = c.angle;
       animateHumanoid(m, c.x, c.z, 0.85, 0.85);
-      var item = m.userData.item;
+      var basket = m.userData.basket;
       if (c.carryType) {
-        item.visible = true;
-        item.material.color.setHex(colorHex(c.carryType));
+        basket.visible = true;
+        for (var type in m.userData.basketFruit) {
+          m.userData.basketFruit[type].visible = type === c.carryType;
+        }
       } else {
-        item.visible = false;
+        basket.visible = false;
       }
     }
     // retire unseen

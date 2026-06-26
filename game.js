@@ -148,7 +148,7 @@
   function addCashierHirePad(co, cost) {
     if (!co) return;
     state.pads.push(mkPad(co.x + 2.7, co.z, 'hireCashier', cost,
-      'Hire Cashier', { checkoutId: co.id }));
+      'キャッシャーを雇う', { checkoutId: co.id }));
   }
 
   // --- Public: movement ---------------------------------------------------
@@ -570,7 +570,9 @@
   }
 
   // --- Persistence (localStorage) ----------------------------------------
-  var SAVE_KEY = 'supermarket-save-v1';
+  // v2 deliberately starts a fresh save: v1 could restore a cashier who was
+  // already hired, which breaks the intended first-play experience.
+  var SAVE_KEY = 'supermarket-save-v2';
   var _saveT = 0;
 
   function hasStorage() {
