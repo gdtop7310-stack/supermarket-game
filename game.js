@@ -74,6 +74,7 @@
       shelves: [],
       checkouts: [],
       customers: [],
+      trashCans: [],
       pads: [],
       floats: [],
       tutorialTarget: null,
@@ -87,6 +88,8 @@
     // hired cashiers, so the player must serve the queue manually at first.
     state.checkouts.push(mkCheckout(WORLD.minX + 4, -8, false));
     state.checkouts.push(mkCheckout(WORLD.minX + 4, -11.5, false));
+    state.trashCans.push({ id: nid('trash'), x: WORLD.minX + 3, z: -2.5 });
+    state.trashCans.push({ id: nid('trash'), x: WORLD.maxX - 3, z: 1.6 });
 
     // Shelves: rows in the store (z<0). Some locked behind upgrade pads.
     // layout: two rows.
@@ -316,6 +319,22 @@
     }
   }
 
+  function updateTrashCans() {
+    var p = state.player;
+    if (p.carryCount <= 0 || !p.carryType) return;
+    for (var i = 0; i < state.trashCans.length; i++) {
+      var t = state.trashCans[i];
+      if (dist2(p.x, p.z, t.x, t.z) <= REACH * REACH) {
+        var dumped = p.carryCount;
+        p.carryCount = 0;
+        p.carryType = null;
+        p._target = null;
+        addFloat(t.x, 1.8, t.z, '-' + dumped, '#d8f0ff');
+        return;
+      }
+    }
+  }
+
   // --- Customers ----------------------------------------------------------
   function unlockedShelvesWithStock() {
     var out = [];
@@ -522,6 +541,13 @@
         var d = dist2(p.x, p.z, sh.x, sh.z);
         if (d < bd) { bd = d; best = sh; }
       }
+      if (!best && p.carryCount >= state.carryCap) {
+        for (var ti = 0; ti < state.trashCans.length; ti++) {
+          var tr = state.trashCans[ti];
+          var td = dist2(p.x, p.z, tr.x, tr.z);
+          if (td < bd) { bd = td; best = tr; }
+        }
+      }
       state.tutorialTarget = best ? { x: best.x, z: best.z } : null;
       return;
     }
@@ -642,6 +668,7 @@
     updateSources(dt);
     updateHarvest(dt);
     updateRefill(dt);
+    updateTrashCans();
     updatePads(dt);
     updateSpawns(dt);
     updateCustomers(dt);
@@ -676,6 +703,9 @@
       checkouts: state.checkouts.map(function (c) {
         return { id: c.id, x: c.x, z: c.z, queueLen: c.queueLen,
                  cashierHired: c.cashierHired };
+      }),
+      trashCans: state.trashCans.map(function (t) {
+        return { id: t.id, x: t.x, z: t.z };
       }),
       customers: state.customers.map(function (c) {
         return { id: c.id, x: c.x, z: c.z, angle: c.angle,

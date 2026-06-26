@@ -34,6 +34,7 @@
   var shelfMeshes = {};   // id -> { group, fillBars:[], lockMesh, sign }
   var sourceMeshes = {};  // id -> { group, crops:[] }
   var checkoutMeshes = {};// id -> group
+  var trashMeshes = {};   // id -> { group, label }
   var padMeshes = {};     // id -> { group, ring, label }
   var customerPool = [];  // reusable customer meshes
   var customerMap = {};   // id -> mesh
@@ -708,6 +709,47 @@
     if (g.userData.cashier) g.userData.cashier.visible = !!c.cashierHired;
   }
 
+  // ---- trash cans --------------------------------------------------------
+  function buildTrashCan(t) {
+    var g = new THREE.Group();
+    g.position.set(t.x, 0, t.z);
+
+    var shadow = cyl(0.92, 0.92, 0.08, 0x6f7d86, 20);
+    shadow.position.y = 0.04;
+    shadow.scale.set(1.15, 1, 0.75);
+    g.add(shadow);
+
+    var can = cyl(0.52, 0.66, 1.18, 0x6f8794, 18);
+    can.position.y = 0.72;
+    g.add(can);
+    var lid = cyl(0.72, 0.62, 0.18, 0x465862, 18);
+    lid.position.y = 1.38;
+    g.add(lid);
+    var handle = box(0.48, 0.12, 0.16, 0x2f3a40);
+    handle.position.y = 1.56;
+    g.add(handle);
+    var mark = box(0.46, 0.42, 0.05, 0xf4fbff);
+    mark.position.set(0, 0.83, 0.64);
+    g.add(mark);
+    var slot = box(0.28, 0.07, 0.06, 0x465862);
+    slot.position.set(0, 0.92, 0.68);
+    g.add(slot);
+
+    var label = document.createElement('div');
+    label.className = 'pad-label';
+    floatLayer.appendChild(label);
+
+    scene.add(g);
+    trashMeshes[t.id] = { group: g, label: label };
+  }
+
+  function syncTrashCan(t) {
+    var m = trashMeshes[t.id];
+    if (!m) { buildTrashCan(t); m = trashMeshes[t.id]; }
+    m.group.visible = true;
+    projectLabel(m.label, t.x, 2.3, t.z, '<b>TRASH</b><br>捨てる');
+  }
+
   // ---- pads --------------------------------------------------------------
   function buildPad(p) {
     var g = new THREE.Group();
@@ -920,6 +962,7 @@
     st.shelves.forEach(buildShelf);
     st.sources.forEach(buildSource);
     st.checkouts.forEach(buildCheckout);
+    st.trashCans.forEach(buildTrashCan);
     st.pads.forEach(buildPad);
   }
 
@@ -944,6 +987,7 @@
     st.shelves.forEach(syncShelf);
     st.sources.forEach(syncSource);
     st.checkouts.forEach(syncCheckout);
+    st.trashCans.forEach(syncTrashCan);
     st.pads.forEach(syncPad);
     syncCustomers(st.customers);
     syncFloats(st.floats);
