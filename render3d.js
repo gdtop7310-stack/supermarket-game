@@ -43,6 +43,15 @@
   var districtSigns = [];
 
   function colorHex(type) { return Game.getProductColor(type); }
+  function productName(type) {
+    return { apple: 'りんご', banana: 'バナナ', grape: 'ぶどう' }[type] || type;
+  }
+  function worldLabel() {
+    var el = document.createElement('div');
+    el.className = 'world-label';
+    floatLayer.appendChild(el);
+    return el;
+  }
 
   // ---- material helpers --------------------------------------------------
   function mat(color, opts) {
@@ -618,8 +627,9 @@
     shackle.position.y = 0.2; lock.add(shackle);
     lock.position.set(0, 2.4, 0.6); g.add(lock);
 
+    var label = worldLabel();
     scene.add(g);
-    shelfMeshes[s.id] = { group: g, fillBars: fillBars, frame: frame, lock: lock, sign: sign };
+    shelfMeshes[s.id] = { group: g, fillBars: fillBars, frame: frame, lock: lock, sign: sign, label: label };
   }
 
   function setOpacity(meshes, op) {
@@ -639,6 +649,9 @@
     for (var i = 0; i < m.fillBars.length; i++) {
       m.fillBars[i].visible = !s.locked && i < fillCount;
     }
+    projectLabel(m.label, s.x, 3.9, s.z, s.locked
+      ? '<b>ロック中</b>'
+      : '<b>' + productName(s.productType) + '</b> ' + s.amount + ' / ' + s.capacity);
   }
 
   // ---- sources (farm plots) ---------------------------------------------
@@ -675,8 +688,9 @@
       }
     }
 
+    var label = worldLabel();
     scene.add(g);
-    sourceMeshes[s.id] = { group: g, crops: crops, crate: crate };
+    sourceMeshes[s.id] = { group: g, crops: crops, crate: crate, label: label };
   }
 
   function syncSource(s) {
@@ -696,6 +710,7 @@
         c.visible = false;
       }
     }
+    projectLabel(m.label, s.x, 2.8, s.z, '<b>' + productName(s.productType) + '畑</b> ' + s.stock + ' / 14');
   }
 
   // ---- checkouts ---------------------------------------------------------
@@ -715,6 +730,7 @@
     cashier.visible = !!c.cashierHired;
     g.add(cashier);
     g.userData.cashier = cashier;
+    g.userData.label = worldLabel();
     scene.add(g);
     checkoutMeshes[c.id] = g;
   }
@@ -722,6 +738,8 @@
     if (!checkoutMeshes[c.id]) buildCheckout(c);
     var g = checkoutMeshes[c.id];
     if (g.userData.cashier) g.userData.cashier.visible = !!c.cashierHired;
+    projectLabel(g.userData.label, c.x, 2.35, c.z,
+      '<b>レジ</b> ' + (c.cashierHired ? 'キャッシャー' : 'あなたが会計') + '<br>列 ' + c.queueLen);
   }
 
   // ---- trash cans --------------------------------------------------------

@@ -30,6 +30,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; background: #8fd3ff;
   font-size: 13px; font-weight: 700; text-align: center; white-space: nowrap;
   border: 2px solid #ffd54a; line-height: 1.25; }
 .pad-label b { color: #ffe23b; }
+.world-label { position: absolute; transform: translate(-50%, -50%);
+  color: #fff; font-size: 12px; font-weight: 800; text-align: center; white-space: nowrap;
+  line-height: 1.25; text-shadow: 0 2px 3px rgba(0,0,0,.82); }
+.world-label b { color: #fff4bc; }
 
 /* ---------- Toast ---------- */
 #toast { position: fixed; top: -80px; left: 50%; transform: translateX(-50%);
